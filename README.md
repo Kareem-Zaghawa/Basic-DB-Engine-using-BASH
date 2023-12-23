@@ -12,6 +12,6 @@ And under the "Connecting to a DB" lies another number of functionalities:
 2. Insert in table 
 3. List Table
 4. Drop Table
-5. Select From Table (Select All, By Range, By Column)
+5. Select From Table (Select All, By Range, By Column, Filter by Column)
 6. Delete From Table (Delete Rows, Delete Columns, Delete All)
 7. Update Table (Updating Values)
