@@ -1,0 +1,640 @@
+#! /usr/bin/bash
+export LC_COLLATE=C # Enable Case Senstive [Small , Capital ]
+shopt -s extglob   # Enable Special Regex 
+export PATH="$PATH:$PWD"
+
+echo $PWD
+if [ -d $HOME/DB_Bash ]  ; then  
+    cd $HOME/DB_Bash 
+else 
+    mkdir $HOME/DB_Bash 
+    cd $HOME/DB_Bash 
+fi
+
+PS3="$PWD >>"
+
+name_check() {
+    name=$(echo "$name" | tr -d '[:blank:]')
+    while ! [[ $name =~ ^[[:alpha:]][[:alnum:]]*$ ]]; do
+        echo "You entered an incorrect name"
+        read -p "Please Enter DB Name starting with a LETTER and without special characters: " name
+        name=$(echo "$name" | tr -d '[:blank:]')
+    done
+}
+
+main_menu=("Create DB" "Connect DB" "list DB" "Remove DB" "Exit")
+select  variable in "Create DB" "Connect DB" "list DB" "Remove DB" "Exit"
+do 
+    #echo $variable
+    case $variable in 
+        "Create DB") 
+            read -p "Please Enter DB Name : " name  
+            name_check
+            
+            if [ -e $name ] ; then
+                echo "This Database name already exists"
+            else
+                mkdir $name 
+            fi
+		echo ""
+		echo ""
+		for i in "${!main_menu[@]}"; do
+		echo "$((i+1)). ${main_menu[i]}"
+		done            
+            
+        ;;
+        "Connect DB") 
+            echo "These are the available DBs"
+            ls -F | grep /
+            read -p "Please Enter DB Name : " name 
+            name_check
+            if [ -d $name ] ; then
+               cd $name 
+		PS3="$name >>"
+
+		unique_check() {
+		    	check=$(awk -F: -v i="$i" '{print $i}' $table_name | grep -w "$input")
+		    	if [[ $col_uniq == "y" ]];then
+			    	while ! [[ -z $check ]];
+			    	do
+			    		echo "The value you entered already exists"
+			    		read -p "Please Enter $col_name: " input
+				    	check=$(awk -F: -v i="$i" '{print $i}' $table_name | grep -w "$input")
+		    		done
+		    	fi
+		}
+
+
+		options=("Create Table" "Insert in Table" "List Tables" "Drop Table" "Select from Table" "Delete from table" "Update Table" "Back")
+		select  variable2 in "Create Table" "Insert in Table" "List Tables" "Drop Table" "Select from Table" "Delete from Table" "Update Table" "Back"
+		do
+		case $REPLY in
+
+		    1) 
+			read -p "Please Enter Table Name : " name
+			name_check
+			table_name=$name
+			while [ -e $table_name ];
+			do
+				echo "A table under this name already exists. Please use another name."
+				read -p "Please Enter Table Name : " name
+				name_check
+				table_name=$name
+			done
+				
+				
+
+			declare -i pk_flag
+
+			read -p "Please Enter Number of Fields: " n
+		    	while ! [[ $n =~ ^[0-9]+$  ]];
+		    	do
+		    		echo "Incorrect input."
+				read -p "Please Enter Number of Fields: " n	
+		    	done			
+		    	
+			declare header data_type uniq
+			header=''
+			data_type=''
+			uniq=''
+			
+			for((i=1;i<=n;i++))
+			do
+				if (($i==1));then
+					echo "Please note that the first column will be considered as Primary Key"
+				fi
+				read -p "Enter the name of column no."$i": " name
+				name_check
+				header="$header:$name"
+
+				
+				read -p "String or Integer? str or int: " dtype
+				while [[ $dtype != "str" && $dtype != "int" ]];
+				do
+					echo "You entered an incorrect answer. Please try again"
+					read -p "String or Integer? str or int: " dtype
+				done
+				data_type="$data_type:$dtype"
+				
+				if (($i!=1));then
+					read -p "Should this column have unique values? y or n: " unique
+					while [[ $unique != "y" && $unique != "n" ]];
+					do
+						echo "You entered an incorrect answer. Please try again"
+						read -p "Should this column have unique values? y or n: " unique
+					done
+				uniq="$uniq:$unique"
+				else
+					uniq="$uniq:y"
+				fi
+
+				
+			done
+			touch $table_name
+			echo ${header:1} >> $table_name 
+			echo ${data_type:1} >> $table_name
+			echo ${uniq:1} >> $table_name
+			echo ""
+			echo ""
+			for i in "${!options[@]}"; do
+        		echo "$((i+1)). ${options[i]}"
+    			done
+		    ;;
+		    
+		    
+		    2)
+			    echo "These are the tables in the DB"
+			    ls -p | grep -v / 
+			    echo ""
+			    
+			    read -p "Please Enter Table Name : " table_name
+			    name_check
+			    echo ""
+
+			    declare -i no_of_fields
+			    
+			    
+			    
+			    if ! [[ -e $table_name ]];then
+			    	echo "The Table Name you entered doesn't exist. Please try Again"
+			    	echo "These are the names of the Tables in the DB"
+			    	ls -p | grep -v / 
+				echo ""
+				echo ""
+				for i in "${!options[@]}"; do
+				echo "$((i+1)). ${options[i]}"
+				done
+			    fi
+			    
+			    no_of_fields=$(sed -n "1p" $table_name | awk -F: '{print NF}')
+			    declare row
+			    declare -i col
+			    
+			    for((i=1;i<=no_of_fields;i++))
+			    do
+			    	col=$i
+			    	col_name=$(sed -n "1p" $table_name | awk -F: -v i="$i" '{print $i}')
+			    	col_type=$(sed -n "2p" $table_name | awk -F: -v i="$i" '{print $i}')
+			    	col_uniq=$(sed -n "3p" $table_name | awk -F: -v i="$i" '{print $i}')
+
+			    	
+			    if ((i==1));then
+			    	read -p "Please Enter $col_name bearing in mind that this is the primary key: " input
+			    	unique_check
+			    else
+			    	read -p "Please Enter $col_name: " input
+			    	unique_check
+			    fi
+			    
+			    
+			    if [[ $col_type == "int" ]];then	
+			    	while ! [[ $input =~ ^[0-9]+$  ]];
+			    	do
+			    		echo "You entered incorrect data type"
+			    		echo "Please enter $col_type" 
+			    		read -p "Please Enter $col_name: " input
+			    		if [[ $col_uniq == "y" ]];then
+			    			echo "error"
+			    			unique_check
+					fi
+			    	done
+			    
+			    elif [[ $col_type == "str" ]];then
+			    	while ! [[ $input =~ ^[A-Za-z\ ]+$ ]];
+			    	do
+			    		echo "You entered incorrect data type"
+			    		echo "Please enter $col_type"
+			    		read -p "Please Enter $col_name: " input
+			    		if [[ $col_uniq == "y" ]];then
+			    			unique_check
+			    		fi
+			    	done
+			    fi
+			    row="$row:$input"
+			    done
+			    
+			    echo ${row:1} >> $table_name
+			    unset row	
+		    	echo ""
+		    	echo ""
+			for i in "${!options[@]}"; do
+			echo "$((i+1)). ${options[i]}"
+    			done
+		    ;;
+		    								
+		    3) 
+		    	ls -p | grep -v / 
+		    	echo ""
+		    	echo ""
+			for i in "${!options[@]}"; do
+        		echo "$((i+1)). ${options[i]}"
+    			done    	
+		    ;;
+		    
+		    4)
+		    echo "These are the available tables:"
+		    ls -p | grep -v /     
+		    read -p "Please Enter Table Name : " name
+		    name_check
+		    if [ -e $name ] ; then
+			rm -ir $name
+		    else
+			echo "No Table under this Name"
+		    fi
+		    echo ""
+		    echo ""
+			for i in "${!options[@]}"; do
+			echo "$((i+1)). ${options[i]}"
+			done
+		    ;;
+		    
+		    5) 
+    		    options2=("All Table" "Certain rows from Table" "Certain Column" "Filter Rows by a Certain Value" "Back")
+		    echo "These are the available tables:"
+		    ls -p | grep -v /     
+		    read -p "Please Enter Table Name : " table_name
+		    name_check
+		    if ! [ -e $table_name ] ; then
+			echo "No table under this name"
+			echo ""
+	    		echo ""
+	    		for i in "${!options[@]}"; do
+				echo "$((i+1)). ${options[i]}"
+			done			
+
+		    else
+		    
+		    PS3="$table_name >>"
+			
+		    select choice in "All Table" "Certain rows from Table" "Certain Column" "Filter Rows by a Certain Value" "Back"
+		    do
+		    
+		    case $REPLY in
+		    	1)
+		    		tail -n+4 $table_name
+		    		echo ""
+				echo ""
+		    		echo ""
+		    		for i in "${!options2[@]}"; do
+        				echo "$((i+1)). ${options2[i]}"
+    				done
+
+			;;
+			
+		    	2)	declare -i start end
+		    		echo "Please enter the range of rows you want to select"
+		    		read -p "Enter starting row: " start
+				while ! [[ $start =~ ^[0-9]+$  ]];
+				    do
+				    	echo "You entered incorrect data type"
+				    	echo "Please enter numbers" 
+				    	read -p "Enter starting row: " start
+				    done
+		   		
+		   		read -p "Enter ending row: " end
+				while ! [[ $end =~ ^[0-9]+$  ]];
+				    do
+				    	echo "You entered incorrect data type"
+				    	echo "Please enter numbers" 
+				    	read -p "Enter ending row: " end
+				    done   		
+						
+		    		start=($start+3)
+		    		end=($end+3)
+		    		sed -n "$start,$end p" $table_name
+
+				echo ""
+		    		echo ""
+		    		for i in "${!options2[@]}"; do
+        				echo "$((i+1)). ${options2[i]}"
+    				done
+
+			;;
+			
+			3)
+				echo "These are the columns in $table_name"
+				echo ""
+				head -1 $table_name
+				echo ""
+				read -p "Please Enter the column you wanna select: " col_
+				str_match=$(head -1 $table_name | grep -w $col_)
+				while [[ -z $str_match ]];
+				do
+				echo "You entered wrong column name. Please try Again"
+				echo "These are the columns in $table_name: "
+				echo ""
+				head -1 $table_name
+				echo ""
+				read -p "Please Enter the column you wanna select: " col_
+				str_match=$(head -1 $table_name | grep -w $col_)
+				done
+				match=$(awk -F ':' -v col="$col_" 'NR==1 {for (i=1; i<=NF; i++) if ($i==col) {print i; exit}}' $table_name)
+				tail -n+4 $table_name | awk -F: -v i="$match" '{print $i}'
+				echo ""
+		    		echo ""
+		    		for i in "${!options2[@]}"; do
+        				echo "$((i+1)). ${options2[i]}"
+    				done				
+				;;
+			
+			4)
+				echo "These are the columns in $table_name"
+				echo ""
+				head -1 $table_name
+				echo ""
+				read -p "Please Enter the column you wanna select: " col_
+				str_match=$(head -1 $table_name | grep -w $col_)
+				while [[ -z $str_match ]];
+				do
+				echo "You entered wrong column name. Please try Again"
+				echo "These are the columns in $table_name: "
+				echo ""
+				head -1 $table_name
+				echo ""
+				read -p "Please Enter the column you wanna select: " col_
+				str_match=$(head -1 $table_name | grep -w $col_)
+				done
+				
+				read -p "Please enter the value you wanna filter by: " val_filter
+				
+				rows_match=$(grep -w $val_filter $table_name)
+				if [[ -z $rows_match ]];then
+					echo "no rows have been found"
+				else
+					echo $rows_match
+					echo ""
+				fi
+		    		for i in "${!options2[@]}"; do
+        				echo "$((i+1)). ${options2[i]}"
+    				done	
+				
+				;;
+			
+			
+			5)
+				PS3="$PWD >>"
+				echo ""
+		    		echo ""
+		    		for i in "${!options[@]}"; do
+        				echo "$((i+1)). ${options[i]}"
+    				done
+			    	break 1
+			    	;;
+		    	
+				
+				
+				
+			
+			
+		    esac
+
+		    done
+		    fi
+		    ;;
+		    
+		    6)
+		    echo "These are the available tables:"
+		    ls -p | grep -v / 
+		    read -p "Please Enter Table Name : " table_name
+		    name_check
+		    if ! [ -e $table_name ] ; then
+			echo "No table under this name"
+			echo ""
+	    		echo ""
+	    		for i in "${!options[@]}"; do
+				echo "$((i+1)). ${options[i]}"
+			done
+		    else
+		    
+    		    PS3="$table_name >>"
+    		    options3=("Delete Rows" "Delete Columns" "Delete All Rows" "Back")
+		    select choice in "Delete Rows" "Delete Columns" "Delete All Rows" "Back"
+		    do
+		    case $REPLY in 
+
+		    	1)	declare -i start end
+		    		echo "Please enter the range of rows you want to delete"
+		    		read -p "Enter starting row: " start
+				while ! [[ $start =~ ^[0-9]+$  ]];
+				    do
+				    	echo "You entered incorrect data type"
+				    	echo "Please enter numbers" 
+				    	read -p "Enter starting row: " start
+				    done
+		   		
+		   		read -p "Enter ending row: " end
+				while ! [[ $end =~ ^[0-9]+$  ]];
+				    do
+				    	echo "You entered incorrect data type"
+				    	echo "Please enter numbers" 
+				    	read -p "Enter ending row: " end
+				    done   		
+						
+		    		start=($start+3)
+		    		end=($end+3)
+		    		echo "Are you sure you want to delete the following rows:"
+		    		sed -n "$start,$end p" $table_name
+		    		read -p "y or n?" ans
+				while [[ $ans != "y" && $ans != "n" ]];
+				do
+					echo "You entered an incorrect answer. Please try again"
+					read -p "y or n?" ans
+				done
+				sed -i "$start,$end d" "$table_name"
+				echo ""
+				echo ""
+		    		echo ""
+		    		for i in "${!options3[@]}"; do
+        				echo "$((i+1)). ${options3[i]}"
+    				done					
+
+			;;
+			
+			2)
+			
+			sed -n "1p" $table_name
+			read -p "Please enter the column you wanna drop: " ans
+			match=$(awk -F ':' -v col="$ans" 'NR==1 {for (i=1; i<=NF; i++) if ($i==col) {print i; exit}}' $table_name)
+			while [ -z $match ];
+			do
+				echo "Column name not found. These are the columns of the table: $table_name"
+				echo "${headers[@]:1}"
+				read -p "Please enter the column you want to drop:  " ans
+				match=$(awk -F ':' -v col="$ans" 'NR==1 {for (i=1; i<=NF; i++) if ($i==col) {print i; exit}}' $table_name)
+			done
+			echo $match
+			
+			cp -f $table_name "$table_name-old" 
+			cut --complement -d':' -f$match "$table_name-old" > $table_name
+			rm "$table_name-old"
+			cat $table_name
+			echo ""
+	    		echo ""
+	    		for i in "${!options3[@]}"; do
+				echo "$((i+1)). ${options3[i]}"
+			done	
+			
+			
+			;;
+			4)
+				head -n 3 $table_name > $table_name
+				echo ""
+		    		echo ""
+		    		for i in "${!options3[@]}"; do
+					echo "$((i+1)). ${options3[i]}"
+				done	
+				;;
+				
+			3)
+				PS3="$PWD >>"
+				echo ""
+		    		echo ""
+		    		for i in "${!options[@]}"; do
+        				echo "$((i+1)). ${options[i]}"
+    				done				
+			    	break 1
+			    	;;			
+				
+		    esac
+		    done
+		    fi
+		    ;;
+		    
+		    7)
+		    echo "These are the available tables:"
+		    ls -p | grep -v / 
+		    read -p "Please Enter Table Name : " table_name
+		    name_check
+		    if ! [ -e $table_name ] ; then
+			echo "No table under this name"
+			echo ""
+	    		echo ""
+	    		for i in "${!options[@]}"; do
+				echo "$((i+1)). ${options[i]}"
+			done
+		    else
+		    
+		    PS3="$table_name >>"
+		    echo "     $(sed -n "1p" $table_name)"
+		    echo ""
+		    tail -n+4 $table_name | nl
+		    declare -i no_row
+		    read -p "Enter row number you want to update: " no_row
+		    rows=$(sed -n '$=' $table_name)
+		    rows=($rows-3)
+		    while !(($no_row<=$rows));
+		    do
+		    	echo "The row number you entered is out of range. Please try again"
+		    	read -p "Enter row number you want to update: " no_row    	
+		    done
+		    no_row=($no_row+3)
+		    
+			sed -n "1p" $table_name
+			read -p "Please enter the column you wanna edit: " ans
+			match=$(awk -F ':' -v col="$ans" 'NR==1 {for (i=1; i<=NF; i++) if ($i==col) {print i; exit}}' $table_name)
+			while [ -z $match ];
+			do
+				echo "Column name not found. These are the columns of the table: $table_name"
+				echo "$(sed -n "1p" $table_name)"
+				echo ""
+				read -p "Please enter the column you wanna edit:  " ans
+				match=$(awk -F ':' -v col="$ans" 'NR==1 {for (i=1; i<=NF; i++) if ($i==col) {print i; exit}}' $table_name)
+			done
+			
+		    	i=$match
+		    	col_type=$(sed -n "2p" $table_name | awk -F: -v i="$match" '{print $i}')
+		    	col_uniq=$(sed -n "3p" $table_name | awk -F: -v i="$i" '{print $i}')
+		    	read -p "Enter Updated Value: " input
+		    	unique_check
+		    	
+			    if [[ $col_type == "int" ]];then	
+			    	while ! [[ $input =~ ^[0-9]+$  ]];
+			    	do
+			    		echo "You entered incorrect data type"
+			    		echo "Please enter $col_type" 
+			    		read -p "Please Enter $col_name: " input
+			    		if [[ $col_uniq == "y" ]];then
+			    			unique_check
+					fi
+			    	done
+			    
+			    elif [[ $col_type == "str" ]];then
+			    	while ! [[ $input =~ ^[A-Za-z]+$ ]];
+			    	do
+			    		echo "You entered incorrect data type"
+			    		echo "Please enter $col_type"
+			    		read -p "Please Enter $col_name: " input
+			    		if [[ $col_uniq == "y" ]];then
+			    			unique_check
+			    		fi
+			    	done
+			    fi    	
+			
+			awk -v row="$no_row" -v field="$match" -v new_value="$input" 'BEGIN { FS=OFS=":" } NR == row { $field = new_value } { print }' "$table_name" > temp && mv temp "$table_name"
+		    	echo "Value Updated Successfully"
+		    	sed -n "${no_row}p" $table_name
+		    	
+		    fi
+			echo ""
+	    		echo ""
+	    		for i in "${!options[@]}"; do
+				echo "$((i+1)). ${options[i]}"
+			done
+		    ;;
+		    
+			
+		    
+		    8)
+		    	cd ..
+
+			PS3="$PWD >>"
+			echo ""
+			echo ""
+			for i in "${!main_menu[@]}"; do
+			echo "$((i+1)). ${main_menu[i]}"
+			done   			
+		    	break 1
+		    	;;
+
+			
+		    	    
+		    
+		esac
+		done 
+            else
+               echo "Error no such DB name "
+            fi
+        ;; 
+        "list DB" ) 
+            ls -F | grep /
+	    	echo ""
+		echo ""
+		for i in "${!main_menu[@]}"; do
+		echo "$((i+1)). ${main_menu[i]}"
+		done   
+        ;; 
+        "Remove DB" ) 
+        	echo "These are the available DBs: "
+	            ls -F | grep /
+            read -p "Please Enter DB Name : " name 
+            name_check
+            if [ -d $name ] ; then
+                rm -ir $name
+            else
+               echo "Error. No DB under this name exists "
+            fi
+	    	echo ""
+		echo ""
+		for i in "${!main_menu[@]}"; do
+		echo "$((i+1)). ${main_menu[i]}"
+		done   
+        ;;
+        4) 
+        exit
+        ;;
+        
+        *)
+        exit
+    esac
+
+done 
